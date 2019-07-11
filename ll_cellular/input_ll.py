@@ -69,7 +69,7 @@ def parse_example(value, use_bfloat16=True, pixel_stats=None):
         image = tf.image.convert_image_dtype(image, dtype=tf.bfloat16)
 
     label = parsed["sirna"]
-    print("sirna is {}".format(label)
+    print("sirna is {}".format(label))
     return image, label
 
 
