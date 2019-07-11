@@ -105,6 +105,7 @@ def resnet_model_fn(features, labels, mode, params, n_classes, num_train_images,
         logits = build_network()
 
     if mode == tf.estimator.ModeKeys.PREDICT:
+        print("ddddd prediction mode --------------------")
         predictions = {
             'classes': tf.argmax(logits, axis=1),
             'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
