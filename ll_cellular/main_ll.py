@@ -32,8 +32,8 @@ import tensorflow as tf
 from tensorflow.contrib import summary
 from tensorflow.python.estimator import estimator
 
-from rxrx import input as rxinput
-from rxrx.official_resnet import resnet_v1
+from ll_cellular import input as rxinput
+from ll_cellular.official_resnet import resnet_v1
 
 DEFAULT_INPUT_FN_PARAMS = {
     'tfrecord_dataset_buffer_size': 256,
