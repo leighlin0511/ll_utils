@@ -458,7 +458,7 @@ def main_predict(use_tpu,
     use_bfloat16 = (tf_precision == 'bfloat16')
 
     #train_glob = os.path.join(url_base_path, 'train', '*.tfrecord')
-	test_glob = os.path.join(url_base_path, 'test', '*.tfrecord')
+    test_glob = os.path.join(url_base_path, 'test', '*.tfrecord')
 	
     tf.logging.info("Test glob: {}".format(test_glob))
 
@@ -469,18 +469,19 @@ def main_predict(use_tpu,
             transpose_input=transpose_input,
             use_bfloat16=use_bfloat16)
 
-	print(test_input_fn)
-	
+    print(test_input_fn)	
 
-    tf.logging.info('Training for %d steps (%.2f epochs in total). Current'
+    tf.logging.info('Predicting for %d steps (%.2f epochs in total). Current'
                     ' step %d.', train_steps, train_steps / steps_per_epoch,
                     current_step)
 
     start_timestamp = time.time()  # This time will include compilation time
 
-    resnet_classifier.train(input_fn=train_input_fn, max_steps=train_steps)
+    predictions = resnet_classifier.predict(input_fn=test_input_fn)
 
-    tf.logging.info('Finished training up to step %d. Elapsed seconds %d.',
+    print("llllllllllll predictions")
+    print(predictions)
+    tf.logging.info('Finished predict up to step %d. Elapsed seconds %d.',
                     train_steps, int(time.time() - start_timestamp))
 
 
@@ -488,16 +489,6 @@ def main_predict(use_tpu,
     tf.logging.info('Finished training up to step %d. Elapsed seconds %d.',
                     train_steps, elapsed_time)
 
-    tf.logging.info('Exporting SavedModel.')
-
-    def serving_input_receiver_fn():
-        features = {
-          'feature': tf.placeholder(dtype=tf.float32, shape=[None, 512, 512, 6]),
-        }
-        receiver_tensors = features
-        return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
-
-    resnet_classifier.export_saved_model(os.path.join(model_dir, 'saved_model'), serving_input_receiver_fn)
 
 if __name__ == '__main__':
 
