@@ -479,8 +479,6 @@ def main_predict(use_tpu,
 
     predictions = resnet_classifier.predict(input_fn=test_input_fn)
 
-    print("llllllllllll predictions")
-    print(predictions)
     tf.logging.info('Finished predict up to step %d. Elapsed seconds %d.',
                     train_steps, int(time.time() - start_timestamp))
 
