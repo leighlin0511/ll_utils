@@ -96,7 +96,7 @@ def convert_tensor_to_rgb(t, channels=DEFAULT_CHANNELS, vmax=255, rgb_map=RGB_MA
 def image_path(dataset,
                experiment,
                plate,
-               address,
+               well,
                site,
                channel,
                base_path=DEFAULT_IMAGES_BASE_PATH):
@@ -111,8 +111,8 @@ def image_path(dataset,
         experiment name
     plate : int
         plate number
-    address : str
-        plate address
+    well : str
+        plate well
     site : int
         site number
     channel : int
@@ -125,7 +125,7 @@ def image_path(dataset,
     str the path of image
     """
     return os.path.join(base_path, dataset, experiment, "Plate{}".format(plate),
-                        "{}_s{}_w{}.png".format(address, site, channel))
+                        "{}_s{}_w{}.png".format(well, site, channel))
 
 
 def load_site(dataset,
