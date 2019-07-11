@@ -32,7 +32,7 @@ import tensorflow as tf
 from tensorflow.contrib import summary
 from tensorflow.python.estimator import estimator
 
-from ll_cellular import input as rxinput
+from ll_cellular import input_ll as llinput
 from ll_cellular.official_resnet import resnet_v1
 
 DEFAULT_INPUT_FN_PARAMS = {
@@ -121,6 +121,8 @@ def resnet_model_fn(features, labels, mode, params, n_classes, num_train_images,
     batch_size = params['batch_size']  # pylint: disable=unused-variable
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
+	print("lllllllllllllllllll labels")
+	print(labels)
     one_hot_labels = tf.one_hot(labels, n_classes)
     cross_entropy = tf.losses.softmax_cross_entropy(
         logits=logits,
@@ -251,7 +253,7 @@ def resnet_model_fn(features, labels, mode, params, n_classes, num_train_images,
         host_call=host_call,
         eval_metrics=eval_metrics)
 
-def main(use_tpu,
+def main_train(use_tpu,
          tpu,
          gcp_project,
          tpu_zone,
@@ -337,7 +339,7 @@ def main(use_tpu,
 
     tf.logging.info("Train glob: {}".format(train_glob))
 
-    train_input_fn = functools.partial(rxinput.input_fn,
+    train_input_fn = functools.partial(llinput.input_fn,
             input_fn_params=input_fn_params,
             tf_records_glob=train_glob,
             pixel_stats=GLOBAL_PIXEL_STATS,
@@ -373,6 +375,129 @@ def main(use_tpu,
 
     resnet_classifier.export_saved_model(os.path.join(model_dir, 'saved_model'), serving_input_receiver_fn)
 
+def main_predict(use_tpu,
+         tpu,
+         gcp_project,
+         tpu_zone,
+         url_base_path,
+         use_cache,
+         model_dir,
+         train_epochs,#
+         train_batch_size,#
+         num_train_images,#
+         epochs_per_loop,#
+         log_step_count_epochs,#
+         num_cores,
+         data_format,
+         transpose_input,
+         tf_precision,
+         n_classes,
+         momentum,
+         weight_decay,#
+         base_learning_rate,#
+         warmup_epochs,#
+         input_fn_params=DEFAULT_INPUT_FN_PARAMS,
+         resnet_depth=50):
+
+    if use_tpu & (tpu is None):
+        tpu = os.getenv('TPU_NAME')
+    tf.logging.info('tpu: {}'.format(tpu))
+    if gcp_project is None:
+        gcp_project = os.getenv('TPU_PROJECT')
+    tf.logging.info('gcp_project: {}'.format(gcp_project))
+
+    steps_per_epoch = (num_train_images // train_batch_size)
+    train_steps = steps_per_epoch * train_epochs
+    current_step = estimator._load_global_step_from_checkpoint_dir(model_dir) # pylint: disable=protected-access,line-too-long
+    iterations_per_loop = steps_per_epoch * epochs_per_loop
+    log_step_count_steps = steps_per_epoch * log_step_count_epochs
+
+
+    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+        tpu if (tpu or use_tpu) else '', zone=tpu_zone, project=gcp_project)
+
+
+    config = tf.contrib.tpu.RunConfig(
+        cluster=tpu_cluster_resolver,
+        model_dir=model_dir,
+        save_summary_steps=iterations_per_loop,
+        save_checkpoints_steps=iterations_per_loop,
+        log_step_count_steps=log_step_count_steps,
+        tpu_config=tf.contrib.tpu.TPUConfig(
+            iterations_per_loop=iterations_per_loop,
+            num_shards=num_cores,
+            per_host_input_for_training=tf.contrib.tpu.InputPipelineConfig.
+            PER_HOST_V2))  # pylint: disable=line-too-long
+
+    model_fn = functools.partial(
+        resnet_model_fn,
+        n_classes=n_classes,
+        num_train_images=num_train_images,
+        data_format=data_format,
+        transpose_input=transpose_input,
+        train_batch_size=train_batch_size,
+        iterations_per_loop=iterations_per_loop,
+        tf_precision=tf_precision,
+        momentum=momentum,
+        weight_decay=weight_decay,
+        base_learning_rate=base_learning_rate,
+        warmup_epochs=warmup_epochs,
+        model_dir=model_dir,
+        use_tpu=use_tpu,
+        resnet_depth=resnet_depth)
+
+
+    resnet_classifier = tf.contrib.tpu.TPUEstimator(
+        use_tpu=use_tpu,
+        model_fn=model_fn,
+        config=config,
+        train_batch_size=train_batch_size,
+        export_to_tpu=False)
+
+
+    use_bfloat16 = (tf_precision == 'bfloat16')
+
+    #train_glob = os.path.join(url_base_path, 'train', '*.tfrecord')
+	test_glob = os.path.join(url_base_path, 'test', '*.tfrecord')
+	
+    tf.logging.info("Test glob: {}".format(test_glob))
+
+    test_input_fn = functools.partial(llinput.input_fn,
+            input_fn_params=input_fn_params,
+            tf_records_glob=test_glob,
+            pixel_stats=GLOBAL_PIXEL_STATS,
+            transpose_input=transpose_input,
+            use_bfloat16=use_bfloat16)
+
+	print(test_input_fn)
+	
+
+    tf.logging.info('Training for %d steps (%.2f epochs in total). Current'
+                    ' step %d.', train_steps, train_steps / steps_per_epoch,
+                    current_step)
+
+    start_timestamp = time.time()  # This time will include compilation time
+
+    resnet_classifier.train(input_fn=train_input_fn, max_steps=train_steps)
+
+    tf.logging.info('Finished training up to step %d. Elapsed seconds %d.',
+                    train_steps, int(time.time() - start_timestamp))
+
+
+    elapsed_time = int(time.time() - start_timestamp)
+    tf.logging.info('Finished training up to step %d. Elapsed seconds %d.',
+                    train_steps, elapsed_time)
+
+    tf.logging.info('Exporting SavedModel.')
+
+    def serving_input_receiver_fn():
+        features = {
+          'feature': tf.placeholder(dtype=tf.float32, shape=[None, 512, 512, 6]),
+        }
+        receiver_tensors = features
+        return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
+
+    resnet_classifier.export_saved_model(os.path.join(model_dir, 'saved_model'), serving_input_receiver_fn)
 
 if __name__ == '__main__':
 
@@ -508,4 +633,4 @@ if __name__ == '__main__':
     tf.logging.info('Parsed args: ')
     for k, v in args.items():
         tf.logging.info('{} : {}'.format(k, v))
-    main(**args)
+    main_train(**args)
