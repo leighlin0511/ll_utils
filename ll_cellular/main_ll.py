@@ -121,8 +121,8 @@ def resnet_model_fn(features, labels, mode, params, n_classes, num_train_images,
     batch_size = params['batch_size']  # pylint: disable=unused-variable
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-	print("lllllllllllllllllll labels")
-	print(labels)
+    print("lllllllllllllllllll labels")
+    print(labels)
     one_hot_labels = tf.one_hot(labels, n_classes)
     cross_entropy = tf.losses.softmax_cross_entropy(
         logits=logits,
