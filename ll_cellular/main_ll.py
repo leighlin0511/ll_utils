@@ -488,7 +488,7 @@ def main_predict(use_tpu,
     elapsed_time = int(time.time() - start_timestamp)
     tf.logging.info('Finished training up to step %d. Elapsed seconds %d.',
                     train_steps, elapsed_time)
-
+    return predictions
 
 if __name__ == '__main__':
 
