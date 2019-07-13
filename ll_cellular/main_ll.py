@@ -476,7 +476,7 @@ def main_predict(use_tpu,
 
     start_timestamp = time.time()  # This time will include compilation time
 
-    predictions = resnet_classifier.predict(input_fn=test_input_fn)
+    predictions = resnet_classifier.predict(input_fn=test_input_fn, predict_batch_size=32)
 
     tf.logging.info('Finished predict up to step %d. Elapsed seconds %d.',
                     train_steps, int(time.time() - start_timestamp))
